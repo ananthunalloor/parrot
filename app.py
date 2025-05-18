@@ -34,7 +34,7 @@ def split_text(text, max_chars=2900):
     return [chunk for chunk in chunks if chunk]
 
 # Synthesize text via AWS Polly in chunks or test-print to console
-def synthesize_long_text(text, voice, access_key, secret_key, region, test_mode=False):
+def synthesize_long_text(text, voice, access_key, secret_key, region, engine, test_mode=False):
     try:
         if test_mode:
             print("[Test Mode] Received text for synthesis:")
@@ -54,7 +54,7 @@ def synthesize_long_text(text, voice, access_key, secret_key, region, test_mode=
         # Break into parts if needed
         if len(text) <= 3000:
             yield "Synthesizing single chunk...", None
-            response = polly.synthesize_speech(Text=text, OutputFormat='mp3', VoiceId=voice, Engine='neural')
+            response = polly.synthesize_speech(Text=text, OutputFormat='mp3', VoiceId=voice, Engine=engine)
             with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp:
                 tmp.write(response['AudioStream'].read())
                 out_path = tmp.name
@@ -66,7 +66,7 @@ def synthesize_long_text(text, voice, access_key, secret_key, region, test_mode=
             paths = []
             for i, chunk in enumerate(chunks):
                 yield f"Processing part {i+1}/{len(chunks)}...", None
-                response = polly.synthesize_speech(Text=chunk, OutputFormat='mp3', VoiceId=voice, Engine='neural')
+                response = polly.synthesize_speech(Text=chunk, OutputFormat='mp3', VoiceId=voice, Engine=engine)
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp:
                     tmp.write(response['AudioStream'].read())
                     paths.append(tmp.name)
@@ -96,13 +96,16 @@ def load_file(file_obj):
         return ""
     try:
         with open(file_obj.name, 'r', encoding='utf-8') as f:
-            return f.read()
+            #  remove newlines and extra spaces
+            content = f.read().replace('\n', ' ').strip()
+            return content
     except Exception as e:
         print(f"Error loading file: {e}")
         return ''
 
 # Available voices
 voices = ['Joanna', 'Matthew', 'Amy', 'Emma', 'Brian', 'Salli']
+engines = ['standard', 'neural']
 
 with gr.Blocks(title="AWS Polly Text-to-Speech App") as app:
     gr.Markdown("## AWS Polly Text-to-Speech Generator")
@@ -123,7 +126,9 @@ with gr.Blocks(title="AWS Polly Text-to-Speech App") as app:
     # File upload & text editor
     with gr.Row():
         file_input = gr.File(label="Upload .txt File", file_types=['.txt'])
-        voice_input = gr.Dropdown(choices=voices, label="Voice", value="Amy")
+        with gr.Column():
+            voice_input = gr.Dropdown(choices=voices, label="Voice", value="Amy")
+            engine_input = gr.Dropdown(choices=engines, label="Engine", value="neural" )
 
     # Voice selection & test toggle
     with gr.Row():
@@ -137,9 +142,9 @@ with gr.Blocks(title="AWS Polly Text-to-Speech App") as app:
     file_output = gr.File(label="Download MP3")
 
     # Launch synthesis or test log
-    def run_process(file_obj, text, voice, ak, sk, region, test_mode):
+    def run_process(file_obj, text, voice, ak, sk, region, engine, test_mode):
         content = text or (open(file_obj.name).read() if file_obj else '')
-        for status, path in synthesize_long_text(content, voice, ak, sk, region, test_mode):
+        for status, path in synthesize_long_text(content, voice, ak, sk, region, engine, test_mode):
             if path:
                 yield status, path, path
             else:
@@ -147,7 +152,7 @@ with gr.Blocks(title="AWS Polly Text-to-Speech App") as app:
 
     start_button.click(
         run_process,
-        inputs=[file_input, text_input, voice_input, access_key_input, secret_key_input, region_input, test_toggle],
+        inputs=[file_input, text_input, voice_input, access_key_input, secret_key_input, region_input, engine_input, test_toggle],
         outputs=[status_output, audio_output, file_output]
     )
 
