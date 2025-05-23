@@ -136,7 +136,7 @@ with gr.Blocks(title="AWS Polly Text-to-Speech App") as app:
             engine_input = gr.Dropdown(choices=engines, label="Engine", value="neural")
 
     with gr.Row():
-        text_input = gr.Textbox(label="Text for Synthesis", lines=10)
+        text_input = gr.Textbox(label="Text for Synthesis", lines=10, autoscroll=False, show_copy_button=True)
     file_input.change(load_file, inputs=file_input, outputs=text_input)
 
     start_button = gr.Button("Start Synthesis")
