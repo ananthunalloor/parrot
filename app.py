@@ -71,7 +71,7 @@ def synthesize_long_text(text, voice, access_key, secret_key, region, engine, te
             yield "Splitting into smaller parts...", None
             chunks = split_text(text)
             yield f"Synthesizing {len(chunks)} chunks in parallel...", None
-            with ThreadPoolExecutor() as executor:
+            with ThreadPoolExecutor(max_workers=10) as executor:  # Limit to 10 concurrent connections
                 futures = [executor.submit(synthesize_chunk, chunk, voice, polly, engine) for chunk in chunks]
                 paths = [future.result() for future in futures]
 
